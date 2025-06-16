@@ -1,0 +1,2 @@
+# Ignore the uploads directory to avoid uploading user files to GitHub
+uploads/

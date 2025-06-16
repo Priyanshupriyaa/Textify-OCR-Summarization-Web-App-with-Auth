@@ -1,0 +1,313 @@
+/* General body and font */
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f0f4f8;
+    color: #333;
+    margin: 0;
+    padding: 0;
+}
+
+/* Container styling */
+.container {
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 15px;
+}
+
+/* Navbar styling */
+.navbar {
+    background-color: #3a86ff !important;
+    box-shadow: 0 2px 8px rgba(58, 134, 255, 0.4);
+}
+
+.navbar .navbar-brand {
+    color: #fff !important;
+    font-weight: 700;
+    font-size: 1.5rem;
+}
+
+.navbar .navbar-text {
+    color: #fff !important;
+}
+
+.navbar .btn-outline-light {
+    border-color: #fff;
+    color: #fff;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.navbar .btn-outline-light:hover {
+    background-color: #fff;
+    color: #3a86ff;
+}
+
+/* Card styling */
+.card {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+/* Form inputs */
+.form-control {
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    transition: border-color 0.3s ease;
+}
+
+.form-control:focus {
+    border-color: #3a86ff;
+    box-shadow: 0 0 8px rgba(58, 134, 255, 0.3);
+}
+
+/* Buttons */
+.btn-primary {
+    background: linear-gradient(45deg, #3a86ff, #00c6ff);
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: background 0.3s ease;
+}
+
+.btn-primary:hover {
+    background: linear-gradient(45deg, #00c6ff, #3a86ff);
+}
+
+.btn-secondary {
+    background: #adb5bd;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    color: #212529;
+    transition: background 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: #868e96;
+    color: #fff;
+}
+
+/* Buttons with distinct colors */
+.btn-upload {
+    background-color: #3a86ff;
+    color: white;
+}
+
+.btn-upload:hover {
+    background-color: #2a6edb;
+}
+
+.btn-ocr {
+    background-color: #38b000;
+    color: white;
+}
+
+.btn-ocr:hover {
+    background-color: #2a7a00;
+}
+
+.btn-summarize {
+    background-color: #6c757d;
+    color: white;
+}
+
+.btn-summarize:hover {
+    background-color: #495057;
+}
+
+/* Center login/register card vertically and horizontally */
+.login-register-container {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Upload page styling */
+.upload-card {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* File input dropzone style */
+.file-dropzone {
+    border: 2px dashed #3a86ff;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    color: #3a86ff;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.file-dropzone:hover {
+    background-color: #e0f0ff;
+}
+
+/* Spinner */
+.spinner {
+    border: 6px solid #f3f3f3;
+    border-top: 6px solid #3a86ff;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+    animation: spin 1s linear infinite;
+    margin: 10px auto;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Table styling */
+.table-primary {
+    background-color: #3a86ff !important;
+    color: white;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: #f0f4f8;
+}
+
+/* Text sections */
+#extractedTextSection, #summarySection {
+    background-color: #fff;
+    border-radius: 12px;
+    padding: 15px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* Hover effect for buttons */
+button:hover {
+    filter: brightness(0.9);
+    cursor: pointer;
+}
+
+/* New styles for upload and summary sections */
+.upload-card {
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.file-dropzone {
+    border: 2px dashed #3a86ff;
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    color: #3a86ff;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.file-dropzone:hover {
+    background-color: #e0f0ff;
+}
+
+.btn-upload {
+    background-color: #3a86ff;
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+}
+
+.btn-upload:hover {
+    background-color: #2a6edb;
+}
+
+.btn-ocr {
+    background-color: #38b000;
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 2px 6px rgba(56, 176, 0, 0.4);
+}
+
+.btn-ocr:hover {
+    background-color: #2a7a00;
+    box-shadow: 0 4px 12px rgba(42, 122, 0, 0.6);
+}
+
+.btn-summarize {
+    background-color: #6c757d;
+    color: white;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+    box-shadow: 0 2px 6px rgba(108, 117, 125, 0.4);
+}
+
+.btn-summarize:hover {
+    background-color: #495057;
+    box-shadow: 0 4px 12px rgba(73, 80, 87, 0.6);
+}
+
+.elevated-card {
+    background-color: #f9fafb;
+    border-radius: 12px;
+    box-shadow: 0 6px 15px rgba(0,0,0,0.1);
+    padding: 20px;
+    margin-bottom: 20px;
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.summary-box {
+    background-color: #f9fafb;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 15px;
+    font-family: 'Poppins', sans-serif;
+    font-size: 1rem;
+    color: #333;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+.play-btn {
+    background-color: #3a86ff;
+    border: none;
+    color: white;
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 0.9rem;
+    transition: background-color 0.3s ease;
+}
+
+.play-btn:hover {
+    background-color: #2a6edb;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Toast notification */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: #3a86ff;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(58, 134, 255, 0.6);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+    z-index: 1050;
+}
+
+.toast.show {
+    opacity: 1;
+    pointer-events: auto;
+}

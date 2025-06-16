@@ -2,328 +2,173 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Handwriting OCR &amp; Summarizer</title>
-    <link rel="icon" href="/static/favicon.ico" type="image/x-icon" />
-    <style>
-        :root {
-            --color-bg-light: #f4f7f8;
-            --color-bg-dark: #121212;
-            --color-text-light: #333;
-            --color-text-dark: #eee;
-            --color-primary: #2c7be5;
-            --color-primary-dark: #1a5bb8;
-            --color-error: #c0392b;
-            --color-success: #27ae60;
-            --transition-speed: 0.3s;
-        }
-        body {
-            font-family: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--color-bg-light);
-            color: var(--color-text-light);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
-        }
-        body.dark-mode {
-            background-color: var(--color-bg-dark);
-            color: var(--color-text-dark);
-        }
-        .container {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-            max-width: 600px;
-            width: 100%;
-            padding: 30px;
-            box-sizing: border-box;
-            transition: background-color var(--transition-speed), color var(--transition-speed);
-        }
-        body.dark-mode .container {
-            background: #1e1e1e;
-            color: var(--color-text-dark);
-        }
-        h1 {
-            font-weight: 700;
-            font-size: 2rem;
-            margin-bottom: 1rem;
-            letter-spacing: 0.05em;
-        }
-        form {
-            margin-bottom: 2rem;
-        }
-        input[type="file"] {
-            display: block;
-            margin-bottom: 15px;
-            width: 100%;
-            padding: 10px;
-            border-radius: 6px;
-            border: 1px solid #ccc;
-            box-sizing: border-box;
-            cursor: pointer;
-            transition: border-color var(--transition-speed);
-        }
-        input[type="file"]:focus {
-            outline: none;
-            border-color: var(--color-primary);
-        }
-        input[type="submit"], button {
-            background-color: var(--color-primary);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 600;
-            transition: background-color var(--transition-speed), transform var(--transition-speed);
-        }
-        input[type="submit"]:hover, button:hover {
-            background-color: var(--color-primary-dark);
-            transform: scale(1.05);
-        }
-        .message {
-            font-weight: 600;
-            margin-bottom: 1rem;
-        }
-        .message.error {
-            color: var(--color-error);
-        }
-        .message.success {
-            color: var(--color-success);
-        }
-        pre {
-            background: #ecf0f1;
-            padding: 15px;
-            border-radius: 8px;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            font-size: 1rem;
-            min-height: 80px;
-            margin-top: 10px;
-            color: var(--color-text-light);
-            transition: background-color var(--transition-speed), color var(--transition-speed);
-        }
-        body.dark-mode pre {
-            background: #2c2c2c;
-            color: var(--color-text-dark);
-        }
-        .section {
-            margin-bottom: 2rem;
-        }
-        .flex-row {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .flex-row > * {
-            flex: 1;
-        }
-        .flex-row > *:not(:last-child) {
-            margin-right: 10px;
-        }
-        #image-preview {
-            max-width: 100%;
-            max-height: 200px;
-            margin-top: 10px;
-            border-radius: 8px;
-            display: none;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        }
-        .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid var(--color-primary);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 10px;
-            visibility: hidden;
-        }
-        .spinner.visible {
-            visibility: visible;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg);}
-            100% { transform: rotate(360deg);}
-        }
-        .dark-mode-toggle {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            background: var(--color-primary);
-            border: none;
-            color: white;
-            padding: 10px 15px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color var(--transition-speed);
-            z-index: 1000;
-        }
-        .dark-mode-toggle:hover {
-            background: var(--color-primary-dark);
-        }
-        .copy-download-buttons {
-            margin-top: 10px;
-            display: flex;
-            gap: 10px;
-        }
-        .copy-download-buttons button {
-            flex: 1;
-            background-color: #27ae60;
-            border: none;
-            color: white;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: background-color var(--transition-speed);
-        }
-        .copy-download-buttons button:hover {
-            background-color: #1e8449;
-        }
-        @media (max-width: 600px) {
-            body {
-                padding: 10px;
-            }
-            .container {
-                padding: 20px;
-            }
-            input[type="submit"], button {
-                width: 100%;
-                padding: 14px;
-                font-size: 1.1rem;
-            }
-            .copy-download-buttons {
-                flex-direction: column;
-            }
-            .copy-download-buttons button {
-                width: 100%;
-            }
-        }
-    </style>
+    <title>Upload and Summarize</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <button class="dark-mode-toggle" id="darkModeToggle">Toggle Dark Mode</button>
-    <div class="container">
-        <div class="section">
-            <h1>Upload an Image</h1>
-            <form id="uploadForm" action="/u" method="post" enctype="multipart/form-data">
-                <input type="file" id="imageInput" name="image" accept="image/*" required />
-                <img id="image-preview" alt="Image Preview" />
-                <input type="submit" value="Upload" />
-            </form>
-            <div id="uploadMessage" class="message {% if 'Error' in message %}error{% elif message %}success{% endif %}">{{ message }}</div>
+    <div class="container mt-4">
+        <nav class="navbar navbar-expand-lg navbar-light bg-primary shadow-sm mb-4 rounded">
+            <div class="container-fluid">
+                <a class="navbar-brand text-white" href="{{ url_for('upload') }}">
+                    <span class="heading-icon">&#128196;</span> OCR + AI Summarization
+                </a>
+                <div class="d-flex">
+                    <span class="navbar-text me-3 text-white">Logged in as: {{ session['username'] }}</span>
+                    <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('history') }}">History</a>
+                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
+                </div>
+            </div>
+        </nav>
+
+        {% if message %}
+        <div class="alert alert-success">{{ message }}</div>
+        {% endif %}
+
+        <form id="uploadForm" method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="mb-3 upload-card">
+            <div class="input-group file-dropzone" onclick="document.querySelector('input[name=image]').click();">
+                <input type="file" name="image" accept="image/*" class="form-control" required style="display:none;" />
+                <span class="mx-auto" id="fileNameDisplay">Click or drag file to upload</span>
+            </div>
+            <button type="submit" class="btn btn-upload mt-3 w-100">Upload</button>
+        </form>
+
+        <div class="d-flex gap-2 mb-3 flex-wrap justify-content-start">
+            <button id="extractTextBtn" class="btn btn-ocr">
+                <span class="icon">&#128270;</span> Extract Text (OCR)
+            </button>
+            <button id="summarizeTextBtn" class="btn btn-summarize">
+                <span class="icon">&#9986;</span> Summarize Text
+            </button>
         </div>
 
-        <div class="section">
-            <h1>Run OCR on Uploaded Image</h1>
-            <form id="ocrForm" action="/r" method="post">
-                <button type="submit">Run Python Script <span class="spinner" id="ocrSpinner"></span></button>
-            </form>
-            {% if output %}
-                <h2>Extracted Text</h2>
-                <pre id="extractedText">{{ output }}</pre>
-                <div class="copy-download-buttons">
-                    <button onclick="copyToClipboard('extractedText')">Copy Text</button>
-                    <button onclick="downloadText('extractedText', 'extracted_text.txt')">Download Text</button>
-                    <button onclick="speakText('extractedText')">🔊 Listen</button>
-                </div>
-            {% endif %}
-        </div>
+        <div class="spinner" id="loadingSpinner" style="display:none;"></div>
 
-        <div class="section">
-            <h1>Summarize Extracted Text</h1>
-            <form id="summarizeForm" action="/sum" method="post">
-                <button type="submit">Summarize <span class="spinner" id="summarizeSpinner"></span></button>
-            </form>
-            {% if summary %}
-                <h2>Summary</h2>
-                <pre id="summaryText">{{ summary }}</pre>
-                <div class="copy-download-buttons">
-                    <button onclick="copyToClipboard('summaryText')">Copy Summary</button>
-                    <button onclick="downloadText('summaryText', 'summary.txt')">Download Summary</button>
-                    <button onclick="speakText('summaryText')">🔊 Listen</button>
-                </div>
-            {% endif %}
-        </div>
+        <section id="extractedTextSection" class="mb-3 fade-in elevated-card" style="display:none;">
+            <h3><span class="icon">&#128196;</span> Extracted Text:
+                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" onclick="speakText('extractedText')">🔊 Play</button>
+            </h3>
+            <pre id="extractedText" class="p-3 summary-box"></pre>
+        </section>
+
+        <section id="summarySection" class="fade-in elevated-card" style="display:none;">
+            <h3><span class="icon">&#128221;</span> Summary:
+                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" onclick="speakText('summaryText')">🔊 Play</button>
+            </h3>
+            <p id="summaryText" class="p-3 summary-box"></p>
+        </section>
     </div>
 
     <script>
-        // Dark mode toggle
-        const darkModeToggle = document.getElementById('darkModeToggle');
-        darkModeToggle.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
-        });
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const extractTextBtn = document.getElementById('extractTextBtn');
+        const summarizeTextBtn = document.getElementById('summarizeTextBtn');
+        const extractedTextSection = document.getElementById('extractedTextSection');
+        const extractedTextPre = document.getElementById('extractedText');
+        const summarySection = document.getElementById('summarySection');
+        const summaryTextP = document.getElementById('summaryText');
 
-        // Image preview
-        const imageInput = document.getElementById('imageInput');
-        const imagePreview = document.getElementById('image-preview');
-        imageInput.addEventListener('change', () => {
-            const file = imageInput.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = e => {
-                    imagePreview.src = e.target.result;
-                    imagePreview.style.display = 'block';
-                };
-                reader.readAsDataURL(file);
-            } else {
-                imagePreview.src = '';
-                imagePreview.style.display = 'none';
-            }
-        });
-
-        // Show spinner on form submit
-        const ocrForm = document.getElementById('ocrForm');
-        const ocrSpinner = document.getElementById('ocrSpinner');
-        ocrForm.addEventListener('submit', () => {
-            ocrSpinner.classList.add('visible');
-        });
-
-        const summarizeForm = document.getElementById('summarizeForm');
-        const summarizeSpinner = document.getElementById('summarizeSpinner');
-        summarizeForm.addEventListener('submit', () => {
-            summarizeSpinner.classList.add('visible');
-        });
-
-        // Copy to clipboard
-        function copyToClipboard(elementId) {
-            const text = document.getElementById(elementId).innerText;
-            navigator.clipboard.writeText(text).then(() => {
-                alert('Copied to clipboard!');
-            });
-        }
-
-        // Download text as file
-        function downloadText(elementId, filename) {
-            const text = document.getElementById(elementId).innerText;
-            const blob = new Blob([text], { type: 'text/plain' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
-            URL.revokeObjectURL(link.href);
-        }
-
-        // Text-to-speech
         function speakText(elementId) {
-            const text = document.getElementById(elementId).innerText;
-            if (!window.speechSynthesis) {
-                alert('Sorry, your browser does not support text-to-speech.');
+            const textElement = document.getElementById(elementId);
+            if (!textElement) {
+                alert('Text element not found.');
                 return;
             }
-            window.speechSynthesis.cancel(); // Cancel any ongoing speech
-            const utterance = new SpeechSynthesisUtterance(text);
-            window.speechSynthesis.speak(utterance);
+            const text = textElement.innerText || textElement.textContent;
+            if (!text) {
+                alert('No text available to read.');
+                return;
+            }
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                window.speechSynthesis.cancel(); // Cancel any ongoing speech
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert('Sorry, your browser does not support text-to-speech.');
+            }
         }
+
+        async function pollTaskStatus(url) {
+            while (true) {
+                const response = await fetch(url);
+                const data = await response.json();
+                if (data.state === 'PENDING' || data.state === 'PROGRESS') {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else if (data.state === 'SUCCESS') {
+                    return data.result;
+                } else {
+                    throw new Error(data.status || 'Task failed');
+                }
+            }
+        }
+
+        extractTextBtn.addEventListener('click', async () => {
+            loadingSpinner.style.display = 'block';
+            extractedTextSection.style.display = 'none';
+            summarySection.style.display = 'none';
+            try {
+                const response = await fetch('{{ url_for("ocr") }}', { method: 'POST', credentials: 'same-origin' });
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    const text = await response.text();
+                    alert('Unexpected response: ' + text);
+                    loadingSpinner.style.display = 'none';
+                    return;
+                }
+                if (data.text) {
+                    extractedTextPre.textContent = data.text;
+                    extractedTextSection.style.display = 'block';
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        summarizeTextBtn.addEventListener('click', async () => {
+            loadingSpinner.style.display = 'block';
+            extractedTextSection.style.display = 'none';
+            summarySection.style.display = 'none';
+            try {
+                const response = await fetch('{{ url_for("summarize") }}', { method: 'POST', credentials: 'same-origin' });
+                let data;
+                try {
+                    data = await response.json();
+                } catch (e) {
+                    const text = await response.text();
+                    alert('Unexpected response: ' + text);
+                    loadingSpinner.style.display = 'none';
+                    return;
+                }
+                if (data.summary) {
+                    summaryTextP.textContent = data.summary;
+                    summarySection.style.display = 'block';
+                } else if (data.error) {
+                    alert('Error: ' + data.error);
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+            } finally {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+
+        // New code to update dropzone text with selected file name
+        const fileInput = document.querySelector('input[name=image]');
+        const dropzoneText = document.getElementById('fileNameDisplay');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                dropzoneText.textContent = fileInput.files[0].name;
+            } else {
+                dropzoneText.textContent = 'Click or drag file to upload';
+            }
+        });
     </script>
 </body>
 </html>

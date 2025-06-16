@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Upload History - OCR + AI Summarization</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container mt-4">
+        <nav class="navbar navbar-expand-lg navbar-light bg-primary shadow-sm mb-4 rounded">
+            <div class="container-fluid">
+                <a class="navbar-brand text-white" href="{{ url_for('upload') }}">
+                    <span class="heading-icon">&#128196;</span> OCR + AI Summarization
+                </a>
+                <div class="d-flex">
+                    <span class="navbar-text me-3 text-white">Logged in as: {{ session['username'] }}</span>
+                    <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('upload') }}">Upload</a>
+                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
+                </div>
+            </div>
+        </nav>
+
+        <h2>Upload History</h2>
+        {% if documents %}
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Upload Time (UTC)</th>
+                        <th>Image</th>
+                        <th>Extracted Text</th>
+                        <th>Summary</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>{{ doc.upload_time.strftime('%Y-%m-%d %H:%M:%S') if doc.upload_time else 'N/A' }}</td>
+                        <td>
+                            <img src="{{ url_for('uploaded_file', filename=doc.filename) }}" alt="Uploaded Image" style="max-width: 150px; max-height: 150px;" />
+                        </td>
+                        <td><pre>{{ doc.extracted_text or 'N/A' }}</pre></td>
+                        <td><pre>{{ doc.summary_text or 'N/A' }}</pre></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p>No upload history found.</p>
+        {% endif %}
+    </div>
+</body>
+</html>
