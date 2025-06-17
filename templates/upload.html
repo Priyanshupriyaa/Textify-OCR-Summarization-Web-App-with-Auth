@@ -46,16 +46,18 @@
 
         <section id="extractedTextSection" class="mb-3 fade-in elevated-card" style="display:none;">
             <h3><span class="icon">&#128196;</span> Extracted Text:
-                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" onclick="speakText('extractedText')">🔊 Play</button>
+                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" id="playExtractedAudioBtn">🔊 Play</button>
             </h3>
             <pre id="extractedText" class="p-3 summary-box"></pre>
+            <audio id="extractedAudio" style="display:none;"></audio>
         </section>
 
         <section id="summarySection" class="fade-in elevated-card" style="display:none;">
             <h3><span class="icon">&#128221;</span> Summary:
-                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" onclick="speakText('summaryText')">🔊 Play</button>
+                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" id="playSummaryAudioBtn">🔊 Play</button>
             </h3>
             <p id="summaryText" class="p-3 summary-box"></p>
+            <audio id="summaryAudio" style="display:none;"></audio>
         </section>
     </div>
 
@@ -67,40 +69,26 @@
         const extractedTextPre = document.getElementById('extractedText');
         const summarySection = document.getElementById('summarySection');
         const summaryTextP = document.getElementById('summaryText');
+        const extractedAudio = document.getElementById('extractedAudio');
+        const summaryAudio = document.getElementById('summaryAudio');
+        const playExtractedAudioBtn = document.getElementById('playExtractedAudioBtn');
+        const playSummaryAudioBtn = document.getElementById('playSummaryAudioBtn');
 
-        function speakText(elementId) {
-            const textElement = document.getElementById(elementId);
-            if (!textElement) {
-                alert('Text element not found.');
-                return;
-            }
-            const text = textElement.innerText || textElement.textContent;
-            if (!text) {
-                alert('No text available to read.');
-                return;
-            }
-            if ('speechSynthesis' in window) {
-                const utterance = new SpeechSynthesisUtterance(text);
-                window.speechSynthesis.cancel(); // Cancel any ongoing speech
-                window.speechSynthesis.speak(utterance);
+        playExtractedAudioBtn.addEventListener('click', () => {
+            if (extractedAudio.src) {
+                extractedAudio.play();
             } else {
-                alert('Sorry, your browser does not support text-to-speech.');
+                alert('No audio available to play.');
             }
-        }
+        });
 
-        async function pollTaskStatus(url) {
-            while (true) {
-                const response = await fetch(url);
-                const data = await response.json();
-                if (data.state === 'PENDING' || data.state === 'PROGRESS') {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                } else if (data.state === 'SUCCESS') {
-                    return data.result;
-                } else {
-                    throw new Error(data.status || 'Task failed');
-                }
+        playSummaryAudioBtn.addEventListener('click', () => {
+            if (summaryAudio.src) {
+                summaryAudio.play();
+            } else {
+                alert('No audio available to play.');
             }
-        }
+        });
 
         extractTextBtn.addEventListener('click', async () => {
             loadingSpinner.style.display = 'block';
@@ -119,6 +107,11 @@
                 }
                 if (data.text) {
                     extractedTextPre.textContent = data.text;
+                    if (data.audio_url) {
+                        extractedAudio.src = data.audio_url;
+                    } else {
+                        extractedAudio.src = '';
+                    }
                     extractedTextSection.style.display = 'block';
                 } else if (data.error) {
                     alert('Error: ' + data.error);
@@ -147,6 +140,11 @@
                 }
                 if (data.summary) {
                     summaryTextP.textContent = data.summary;
+                    if (data.audio_url) {
+                        summaryAudio.src = data.audio_url;
+                    } else {
+                        summaryAudio.src = '';
+                    }
                     summarySection.style.display = 'block';
                 } else if (data.error) {
                     alert('Error: ' + data.error);

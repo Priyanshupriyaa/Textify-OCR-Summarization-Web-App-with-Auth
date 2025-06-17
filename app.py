@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import os
-from ocr_summarizer import preprocess_image, extract_text, summarize_text
+from ocr_summarizer import preprocess_image, extract_text, summarize_text, speak_text
 from werkzeug.utils import secure_filename
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -121,7 +121,12 @@ def ocr():
         text = extract_text(preprocessed_image)
         # Save extracted text to the document
         documents.update_one({'_id': latest_doc['_id']}, {'$set': {'extracted_text': text}})
-        return jsonify({'text': text}), 200
+        # Generate speech audio
+        audio_filename = f"{latest_doc['_id']}_extracted.mp3"
+        audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
+        speak_text(text, audio_path)
+        audio_url = url_for('uploaded_file', filename=audio_filename)
+        return jsonify({'text': text, 'audio_url': audio_url}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
@@ -142,7 +147,12 @@ def summarize():
         summary = summarize_text(text)
         # Save summary text to the document
         documents.update_one({'_id': latest_doc['_id']}, {'$set': {'summary_text': summary}})
-        return jsonify({'summary': summary}), 200
+        # Generate speech audio
+        audio_filename = f"{latest_doc['_id']}_summary.mp3"
+        audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
+        speak_text(summary, audio_path)
+        audio_url = url_for('uploaded_file', filename=audio_filename)
+        return jsonify({'summary': summary, 'audio_url': audio_url}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

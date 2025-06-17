@@ -2,6 +2,8 @@ import cv2
 import pytesseract
 import numpy as np
 from transformers import pipeline
+from gtts import gTTS
+import os
 
 def preprocess_image(image_path):
     """
@@ -35,3 +37,10 @@ def summarize_text(text):
         return ""
     summary = summarizer(text, max_length=len(words)//2)
     return summary[0]['summary_text']
+
+def speak_text(text, filename):
+    """
+    Convert text to speech and save as an mp3 file.
+    """
+    tts = gTTS(text=text, lang='en')
+    tts.save(filename)
