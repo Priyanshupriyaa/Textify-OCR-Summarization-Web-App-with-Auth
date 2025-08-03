@@ -25,7 +25,7 @@ A Flask-based web application that lets users upload images with text, extract t
 - **Summarization**: Hugging Face Transformers
 - **Database**: MongoDB
 - **Authentication**: Flask-Login, bcrypt
-- **Text-to-Speech**: pyttsx3
+- **Text-to-Speech**: gtts
 - **Frontend**: HTML, CSS, Bootstrap (via Jinja2)
 
 ---
