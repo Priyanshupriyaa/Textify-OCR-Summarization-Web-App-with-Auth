@@ -15,6 +15,7 @@ A Flask-based web application that lets users upload images with text, extract t
 - 🔊 **Text-to-Speech** – Plays extracted and summarized text aloud.
 - 🧾 **Upload History** – View past uploads along with text and summary.
 - ⚙️ **REST API Endpoints** – Perform OCR and summarization programmatically.
+- **Image Hashing** - Perform hashing of image so dont have to go through the pipeline again
 
 ---
 
