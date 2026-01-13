@@ -8,14 +8,15 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from bson.objectid import ObjectId
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Replace with a secure key in production
+# Replace with a secure key in production
+app.secret_key = os.environ.get("FLASK_SECRET_KEY",os.urandom(32))
 
 app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
 # MongoDB configuration
-app.config["MONGO_URI"] = "mongodb://localhost:27017/ocr_summarizer_db"
+app.config["MONGO_URI"] = os.environ.get("MONGO_URI", "mongodb://localhost:27017/ocr_summarizer_db")
 mongo = PyMongo(app)
 
 
@@ -76,12 +77,18 @@ def upload():
         if 'image' not in request.files:
             message = "No file part in the request."
             return render_template('upload.html', message=message)
-        image = request.files['image']
-        if image.filename == '':
+        file = request.files['image']
+        if file.filename == '':
             message = "No selected file."
             return render_template('upload.html', message=message)
+        # Check file type
+        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
+        ext = os.path.splitext(file.filename)[1].lower()
+        if ext not in allowed_extensions:
+            message = "Invalid file type. Only images are allowed."
+            return render_template('upload.html', message=message)
         # Read image data for hashing
-        image_data = image.read()
+        image_data = file.read()
         file_hash = hashlib.sha256(image_data).hexdigest()
         # Check if image already exists for this user
         documents = mongo.db.documents
@@ -90,13 +97,13 @@ def upload():
             message = "This image has already been uploaded and processed. You can proceed to OCR or Summarize."
             return render_template('upload.html', message=message)
         # If not exists, save the file
-        image.seek(0)  # Reset file pointer
+        file.seek(0)  # Reset file pointer
         import uuid
-        ext = os.path.splitext(image.filename)[1]
+        ext = os.path.splitext(file.filename)[1]
         unique_filename = f"{uuid.uuid4().hex}{ext}"
         filename = secure_filename(unique_filename)
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        image.save(image_path)
+        file.save(image_path)
         # Save upload info to MongoDB
         from datetime import datetime
         documents.insert_one({
@@ -133,8 +140,17 @@ def ocr():
         if not os.path.exists(image_path):
             return jsonify({'error': "Uploaded image file not found."}), 400
         try:
-            preprocessed_image = preprocess_image(image_path)
-            text = extract_text(preprocessed_image)
+            ext = os.path.splitext(latest_doc['filename'])[1].lower()
+            if ext == '.pdf':
+                images = convert_pdf_to_images(image_path)
+                text = ""
+                for img in images:
+                    img_array = np.array(img)
+                    preprocessed_image = preprocess_image_from_array(img_array)
+                    text += extract_text(preprocessed_image) + "\n"
+            else:
+                preprocessed_image = preprocess_image(image_path)
+                text = extract_text(preprocessed_image)
             # Save extracted text to the document
             documents.update_one({'_id': latest_doc['_id']}, {'$set': {'extracted_text': text}})
         except Exception as e:
@@ -163,12 +179,6 @@ def summarize():
             return jsonify({'error': "Uploaded image file not found."}), 400
         try:
             preprocessed_image = preprocess_image(image_path)
-            text = extract_text(preprocessed_image)
-            summary = summarize_text(text)
-            # Save summary text to the document
-            documents.update_one({'_id': latest_doc['_id']}, {'$set': {'summary_text': summary}})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
     # Generate speech audio
     audio_filename = f"{latest_doc['_id']}_summary.mp3"
     audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)

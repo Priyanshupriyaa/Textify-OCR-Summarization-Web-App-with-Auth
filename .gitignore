@@ -1,2 +1,8 @@
 # Ignore the uploads directory to avoid uploading user files to GitHub
 uploads/
+
+# Ignore .env file to avoid committing sensitive environment variables
+.env
+
+# Ignore Python bytecode cache
+__pycache__/
