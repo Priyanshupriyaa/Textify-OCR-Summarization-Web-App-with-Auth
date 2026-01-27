@@ -23,7 +23,7 @@ mongo = PyMongo(app)
 @app.route('/')
 def home():
     print(f"Session contents at root: {session}")
-    if 'username' in session:
+    if 'user_id' in session:
         return redirect(url_for('upload'))
     return redirect(url_for('login'))
 
@@ -56,6 +56,7 @@ def login():
         password = request.form.get('password')
         user = users.find_one({'username': username})
         if user and check_password_hash(user['password'], password):
+            session['user_id'] = str(user['_id'])
             session['username'] = username
             return redirect(url_for('upload'))
         else:
@@ -65,12 +66,13 @@ def login():
 
 @app.route('/logout')
 def logout():
+    session.pop('user_id', None)
     session.pop('username', None)
     return redirect(url_for('login'))
 
 @app.route('/upload', methods=['GET', 'POST'])
 def upload():
-    if 'username' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('login'))
     message = ''
     if request.method == 'POST':
@@ -92,7 +94,7 @@ def upload():
         file_hash = hashlib.sha256(image_data).hexdigest()
         # Check if image already exists for this user
         documents = mongo.db.documents
-        existing_doc = documents.find_one({'username': session['username'], 'file_hash': file_hash})
+        existing_doc = documents.find_one({'user_id': ObjectId(session['user_id']), 'file_hash': file_hash})
         if existing_doc:
             message = "This image has already been uploaded and processed. You can proceed to OCR or Summarize."
             return render_template('upload.html', message=message)
@@ -107,7 +109,7 @@ def upload():
         # Save upload info to MongoDB
         from datetime import datetime
         documents.insert_one({
-            'username': session['username'],
+            'user_id': ObjectId(session['user_id']),
             'filename': filename,
             'file_hash': file_hash,
             'upload_time': datetime.utcnow()
@@ -118,10 +120,10 @@ def upload():
 
 @app.route('/history')
 def history():
-    if 'username' not in session:
+    if 'user_id' not in session:
         return redirect(url_for('login'))
     documents = mongo.db.documents
-    user_docs = list(documents.find({'username': session['username']}).sort('upload_time', -1))
+    user_docs = list(documents.find({'user_id': ObjectId(session['user_id'])}).sort('upload_time', -1))
     return render_template('history.html', documents=user_docs)
 
 @app.route('/ocr', methods=['POST'])
@@ -140,17 +142,8 @@ def ocr():
         if not os.path.exists(image_path):
             return jsonify({'error': "Uploaded image file not found."}), 400
         try:
-            ext = os.path.splitext(latest_doc['filename'])[1].lower()
-            if ext == '.pdf':
-                images = convert_pdf_to_images(image_path)
-                text = ""
-                for img in images:
-                    img_array = np.array(img)
-                    preprocessed_image = preprocess_image_from_array(img_array)
-                    text += extract_text(preprocessed_image) + "\n"
-            else:
-                preprocessed_image = preprocess_image(image_path)
-                text = extract_text(preprocessed_image)
+            preprocessed_image = preprocess_image(image_path)
+            text = extract_text(preprocessed_image)
             # Save extracted text to the document
             documents.update_one({'_id': latest_doc['_id']}, {'$set': {'extracted_text': text}})
         except Exception as e:
@@ -164,28 +157,45 @@ def ocr():
 
 @app.route('/summarize', methods=['POST'])
 def summarize():
-    if 'username' not in session:
+    if 'user_id' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
+
     documents = mongo.db.documents
-    latest_doc = documents.find_one({'username': session['username']}, sort=[('upload_time', -1)])
-    if not latest_doc or 'filename' not in latest_doc:
-        return jsonify({'error': "No uploaded image found. Please upload an image first."}), 400
-    # Check if summary is already generated
+    latest_doc = documents.find_one(
+        {'user_id': ObjectId(session['user_id'])},
+        sort=[('upload_time', -1)]
+    )
+
+    if not latest_doc:
+        return jsonify({'error': "No uploaded image found."}), 400
+
+    # Step 1: Ensure text exists
+    if 'extracted_text' not in latest_doc:
+        return jsonify({'error': "Please perform OCR before summarizing."}), 400
+
+    # Step 2: Check cache
     if 'summary_text' in latest_doc:
         summary = latest_doc['summary_text']
     else:
-        image_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_doc['filename'])
-        if not os.path.exists(image_path):
-            return jsonify({'error': "Uploaded image file not found."}), 400
         try:
-            preprocessed_image = preprocess_image(image_path)
-    # Generate speech audio
+            summary = summarize_text(latest_doc['extracted_text'])
+            documents.update_one(
+                {'_id': latest_doc['_id']},
+                {'$set': {'summary_text': summary}}
+            )
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # Step 3: Generate TTS
     audio_filename = f"{latest_doc['_id']}_summary.mp3"
     audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
     speak_text(summary, audio_path)
+
     audio_url = url_for('uploaded_file', filename=audio_filename)
+
     return jsonify({'summary': summary, 'audio_url': audio_url}), 200
 
+    
 from flask import send_from_directory
 
 @app.route('/uploads/<filename>')
