@@ -192,7 +192,3 @@ For production deployment, the system is designed to run on higher-memory instan
 ---
 
 ---
-
-## 📄 License
-
-This project is licensed under the MIT License.
