@@ -191,10 +191,6 @@ For production deployment, the system is designed to run on higher-memory instan
 
 ---
 
-## 🤝 Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
 ---
 
 ## 📄 License
