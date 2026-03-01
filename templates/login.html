@@ -16,7 +16,7 @@
                         {% if message %}
                         <div class="alert alert-danger" role="alert">{{ message }}</div>
                         {% endif %}
-                        <form method="POST" action="{{ url_for('login') }}">
+                        <form id="loginForm">
                             <div class="mb-3">
                                 <label for="username" class="form-label">Username:</label>
                                 <input type="text" id="username" name="username" class="form-control" required />
@@ -33,5 +33,55 @@
             </div>
         </div>
     </div>
+
+    <script>
+        document.getElementById('loginForm').addEventListener('submit', async function(event) {
+            event.preventDefault(); // Prevent default form submission
+
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            try {
+                const response = await fetch('{{ url_for("login") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        username: username,
+                        password: password
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    // Save token to localStorage
+                    localStorage.setItem('access_token', data.access_token);
+                    // Redirect to upload page
+                    window.location.href = '{{ url_for("upload") }}';
+                } else {
+                    // Display error message
+                    const alertDiv = document.querySelector('.alert');
+                    if (alertDiv) {
+                        alertDiv.textContent = data.message || 'Login failed';
+                        alertDiv.classList.remove('alert-success');
+                        alertDiv.classList.add('alert-danger');
+                    } else {
+                        // Create alert if not exists
+                        const container = document.querySelector('.container');
+                        const newAlert = document.createElement('div');
+                        newAlert.className = 'alert alert-danger';
+                        newAlert.setAttribute('role', 'alert');
+                        newAlert.textContent = data.message || 'Login failed';
+                        container.insertBefore(newAlert, container.firstChild.nextSibling);
+                    }
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('An error occurred during login. Please try again.');
+            }
+        });
+    </script>
 </body>
 </html>

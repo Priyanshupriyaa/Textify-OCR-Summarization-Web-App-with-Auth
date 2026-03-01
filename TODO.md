@@ -1,0 +1,3 @@
+- Install Python dependencies from requirements.txt
+- Run the Flask application using python app.py
+- Verify the app is running on localhost:5000

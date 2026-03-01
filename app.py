@@ -1,17 +1,38 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, send_from_directory
 import os
 import hashlib
-from ocr_summarizer import preprocess_image, extract_text, summarize_text, speak_text
+from ocr_summarizer import preprocess_image, extract_text, summarize_text, get_summarizer
 from werkzeug.utils import secure_filename
 from flask_pymongo import PyMongo
 from werkzeug.security import generate_password_hash, check_password_hash
 from bson.objectid import ObjectId
+from dotenv import load_dotenv
+from flask_jwt_extended import JWTManager, jwt_required, get_jwt_identity, create_access_token
+from datetime import datetime
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
-# Replace with a secure key in production
-app.secret_key = os.environ.get("FLASK_SECRET_KEY",os.urandom(32))
 
-app.config['UPLOAD_FOLDER'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'uploads')
+# Configuration from environment variables
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", os.urandom(32))
+
+# JWT configuration
+app.config["JWT_SECRET_KEY"] = os.environ.get(
+    "JWT_SECRET_KEY",
+    app.secret_key
+)
+
+# Initialize JWT
+jwt = JWTManager(app)
+
+# Get upload folder path - support both relative and absolute paths
+upload_folder = os.environ.get("UPLOAD_FOLDER", "uploads")
+if not os.path.isabs(upload_folder):
+    upload_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), upload_folder)
+
+app.config['UPLOAD_FOLDER'] = upload_folder
 if not os.path.exists(app.config['UPLOAD_FOLDER']):
     os.makedirs(app.config['UPLOAD_FOLDER'])
 
@@ -19,18 +40,29 @@ if not os.path.exists(app.config['UPLOAD_FOLDER']):
 app.config["MONGO_URI"] = os.environ.get("MONGO_URI", "mongodb://localhost:27017/ocr_summarizer_db")
 mongo = PyMongo(app)
 
+# Allowed file extensions for upload
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+
+
+def allowed_file(filename):
+    """
+    Check if the file has an allowed extension.
+    Only .png, .jpg, .jpeg, .pdf are allowed for security.
+    """
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+# JWT Unauthorized Loader - Returns clean JSON error for missing/invalid tokens
+@jwt.unauthorized_loader
+def unauthorized_callback(error):
+    return jsonify({'error': 'Missing or invalid token'}), 401
+
 
 @app.route('/')
 def home():
-    print(f"Session contents at root: {session}")
-    if 'user_id' in session:
-        return redirect(url_for('upload'))
     return redirect(url_for('login'))
 
-@app.route('/clear_session')
-def clear_session():
-    session.clear()
-    return "Session cleared. You can now <a href='/'>go to home</a>."
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -48,6 +80,7 @@ def register():
         return render_template('login.html', message=message)
     return render_template('register.html')
 
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -56,151 +89,190 @@ def login():
         password = request.form.get('password')
         user = users.find_one({'username': username})
         if user and check_password_hash(user['password'], password):
-            session['user_id'] = str(user['_id'])
-            session['username'] = username
-            return redirect(url_for('upload'))
+            # Generate JWT access token
+            access_token = create_access_token(identity=str(user['_id']))
+            return jsonify({
+                'access_token': access_token,
+                'username': username,
+                'message': 'Login successful'
+            }), 200
         else:
             message = "Invalid username or password."
-            return render_template('login.html', message=message)
+            return jsonify({'message': message}), 401
     return render_template('login.html')
+
 
 @app.route('/logout')
 def logout():
-    session.pop('user_id', None)
-    session.pop('username', None)
     return redirect(url_for('login'))
 
+
 @app.route('/upload', methods=['GET', 'POST'])
+@jwt_required()
 def upload():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
+    user_id = get_jwt_identity()
+
     message = ''
     if request.method == 'POST':
         if 'image' not in request.files:
-            message = "No file part in the request."
-            return render_template('upload.html', message=message)
+            return render_template('upload.html', message="No file part in the request.")
+
         file = request.files['image']
         if file.filename == '':
-            message = "No selected file."
-            return render_template('upload.html', message=message)
-        # Check file type
-        allowed_extensions = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff'}
-        ext = os.path.splitext(file.filename)[1].lower()
-        if ext not in allowed_extensions:
-            message = "Invalid file type. Only images are allowed."
-            return render_template('upload.html', message=message)
-        # Read image data for hashing
+            return render_template('upload.html', message="No selected file.")
+
+        if not allowed_file(file.filename):
+            return render_template(
+                'upload.html',
+                message="Invalid file type. Only .png, .jpg, .jpeg, and .pdf files are allowed."
+            )
+
         image_data = file.read()
         file_hash = hashlib.sha256(image_data).hexdigest()
-        # Check if image already exists for this user
+
         documents = mongo.db.documents
-        existing_doc = documents.find_one({'user_id': ObjectId(session['user_id']), 'file_hash': file_hash})
+        existing_doc = documents.find_one({
+            'user_id': ObjectId(user_id),
+            'file_hash': file_hash
+        })
+
+        # DUPLICATE UPLOAD
         if existing_doc:
-            message = "This image has already been uploaded and processed. You can proceed to OCR or Summarize."
-            return render_template('upload.html', message=message)
-        # If not exists, save the file
-        file.seek(0)  # Reset file pointer
+            documents.update_one(
+                {'_id': existing_doc['_id']},
+                {'$set': {'upload_time': datetime.utcnow()}}
+            )
+            return render_template(
+                'upload.html',
+                message="This image was already uploaded. Using existing document."
+            )
+
+        # NEW UPLOAD
+        file.seek(0)
+
         import uuid
-        ext = os.path.splitext(file.filename)[1]
-        unique_filename = f"{uuid.uuid4().hex}{ext}"
-        filename = secure_filename(unique_filename)
+        ext = os.path.splitext(file.filename)[1].lower()
+        filename = secure_filename(f"{uuid.uuid4().hex}{ext}")
+
         image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(image_path)
-        # Save upload info to MongoDB
-        from datetime import datetime
+
         documents.insert_one({
-            'user_id': ObjectId(session['user_id']),
+            'user_id': ObjectId(user_id),
             'filename': filename,
             'file_hash': file_hash,
             'upload_time': datetime.utcnow()
         })
-        message = "Uploaded Successfully"
-        return render_template('upload.html', message=message)
+
+        return render_template('upload.html', message="Uploaded Successfully")
+
     return render_template('upload.html', message=message)
 
-@app.route('/history')
-def history():
-    if 'user_id' not in session:
-        return redirect(url_for('login'))
-    documents = mongo.db.documents
-    user_docs = list(documents.find({'user_id': ObjectId(session['user_id'])}).sort('upload_time', -1))
-    return render_template('history.html', documents=user_docs)
 
 @app.route('/ocr', methods=['POST'])
+@jwt_required()
 def ocr():
-    if 'username' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+    """
+    OCR endpoint - processes synchronously.
+    Uses default PSM 6 (single uniform block of text).
+    """
+    user_id = get_jwt_identity()
+    
     documents = mongo.db.documents
-    latest_doc = documents.find_one({'username': session['username']}, sort=[('upload_time', -1)])
+    latest_doc = documents.find_one(
+        {'user_id': ObjectId(user_id)},
+        sort=[('upload_time', -1)]
+    )
+    
     if not latest_doc or 'filename' not in latest_doc:
         return jsonify({'error': "No uploaded image found. Please upload an image first."}), 400
-    # Check if text is already extracted
+    
+    # Use default PSM 6
+    ocr_mode = 6
+    
+    # Check cache - return immediately if text already extracted
     if 'extracted_text' in latest_doc:
         text = latest_doc['extracted_text']
-    else:
-        image_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_doc['filename'])
-        if not os.path.exists(image_path):
-            return jsonify({'error': "Uploaded image file not found."}), 400
-        try:
-            preprocessed_image = preprocess_image(image_path)
-            text = extract_text(preprocessed_image)
-            # Save extracted text to the document
-            documents.update_one({'_id': latest_doc['_id']}, {'$set': {'extracted_text': text}})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-    # Generate speech audio
-    audio_filename = f"{latest_doc['_id']}_extracted.mp3"
-    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
-    speak_text(text, audio_path)
-    audio_url = url_for('uploaded_file', filename=audio_filename)
-    return jsonify({'text': text, 'audio_url': audio_url}), 200
+        return jsonify({'text': text, 'cached': True}), 200
+    
+    image_path = os.path.join(app.config['UPLOAD_FOLDER'], latest_doc['filename'])
+    if not os.path.exists(image_path):
+        return jsonify({'error': "Uploaded image file not found."}), 400
+    
+    try:
+        preprocessed_images = preprocess_image(image_path)
+        text_parts = []
+        for img in preprocessed_images:
+            page_text = extract_text(img, psm=ocr_mode)
+            if page_text and page_text.strip():
+                text_parts.append(page_text)
+        text = '\n\n'.join(text_parts)
+
+        if not text or text.strip() == '':
+            return jsonify({'error': "No text could be extracted from the image. Please try a clearer image."}), 400
+        
+        # Save extracted text
+        documents.update_one(
+            {'_id': latest_doc['_id']}, 
+            {'$set': {'extracted_text': text, 'ocr_psm': ocr_mode}}
+        )
+        
+        return jsonify({'text': text}), 200
+    except Exception as e:
+        print(f"OCR Error: {str(e)}")
+        return jsonify({'error': f"OCR processing failed: {str(e)}"}), 500
+
 
 @app.route('/summarize', methods=['POST'])
+@jwt_required()
 def summarize():
-    if 'user_id' not in session:
-        return jsonify({'error': 'Unauthorized'}), 401
+    """
+    Summarize endpoint - processes synchronously.
+    """
+    user_id = get_jwt_identity()
 
     documents = mongo.db.documents
     latest_doc = documents.find_one(
-        {'user_id': ObjectId(session['user_id'])},
+        {'user_id': ObjectId(user_id)},
         sort=[('upload_time', -1)]
     )
 
     if not latest_doc:
         return jsonify({'error': "No uploaded image found."}), 400
 
-    # Step 1: Ensure text exists
     if 'extracted_text' not in latest_doc:
         return jsonify({'error': "Please perform OCR before summarizing."}), 400
 
-    # Step 2: Check cache
+    # Check cache - return immediately if summary already exists
     if 'summary_text' in latest_doc:
         summary = latest_doc['summary_text']
-    else:
-        try:
-            summary = summarize_text(latest_doc['extracted_text'])
-            documents.update_one(
-                {'_id': latest_doc['_id']},
-                {'$set': {'summary_text': summary}}
-            )
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+        return jsonify({'summary': summary, 'cached': True}), 200
 
-    # Step 3: Generate TTS
-    audio_filename = f"{latest_doc['_id']}_summary.mp3"
-    audio_path = os.path.join(app.config['UPLOAD_FOLDER'], audio_filename)
-    speak_text(summary, audio_path)
+    try:
+        summary = summarize_text(latest_doc['extracted_text'])
 
-    audio_url = url_for('uploaded_file', filename=audio_filename)
+        if not summary or summary.strip() == '':
+            return jsonify({'error': "Could not generate summary. The text may be too short."}), 400
 
-    return jsonify({'summary': summary, 'audio_url': audio_url}), 200
+        # Save summary
+        documents.update_one(
+            {'_id': latest_doc['_id']},
+            {'$set': {'summary_text': summary}}
+        )
 
-    
-from flask import send_from_directory
+        return jsonify({'summary': summary}), 200
+    except Exception as e:
+        print(f"Summarization Error: {str(e)}")
+        return jsonify({'error': f"Summarization failed: {str(e)}"}), 500
+
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
+    print("Loading summarization model...")
+    get_summarizer()
+    print("Model loaded successfully!")
     app.run(debug=True)

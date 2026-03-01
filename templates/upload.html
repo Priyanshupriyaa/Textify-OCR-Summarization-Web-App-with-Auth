@@ -14,9 +14,7 @@
                     <span class="heading-icon">&#128196;</span> OCR + AI Summarization
                 </a>
                 <div class="d-flex">
-                    <span class="navbar-text me-3 text-white">Logged in as: {{ session['username'] }}</span>
-                    <a class="btn btn-outline-light btn-sm me-2" href="{{ url_for('history') }}">History</a>
-                    <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}">Logout</a>
+                    <button class="btn btn-outline-light btn-sm" id="logoutBtn">Logout</button>
                 </div>
             </div>
         </nav>
@@ -33,7 +31,7 @@
             <button type="submit" class="btn btn-upload mt-3 w-100">Upload</button>
         </form>
 
-        <div class="d-flex gap-2 mb-3 flex-wrap justify-content-start">
+        <div class="d-flex gap-2 mb-3 flex-wrap justify-content-start align-items-center">
             <button id="extractTextBtn" class="btn btn-ocr">
                 <span class="icon">&#128270;</span> Extract Text (OCR)
             </button>
@@ -45,23 +43,26 @@
         <div class="spinner" id="loadingSpinner" style="display:none;"></div>
 
         <section id="extractedTextSection" class="mb-3 fade-in elevated-card" style="display:none;">
-            <h3><span class="icon">&#128196;</span> Extracted Text:
-                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" id="playExtractedAudioBtn">🔊 Play</button>
-            </h3>
+            <h3><span class="icon">&#128196;</span> Extracted Text</h3>
             <pre id="extractedText" class="p-3 summary-box"></pre>
-            <audio id="extractedAudio" style="display:none;"></audio>
         </section>
 
         <section id="summarySection" class="fade-in elevated-card" style="display:none;">
-            <h3><span class="icon">&#128221;</span> Summary:
-                <button type="button" class="btn btn-sm btn-primary ms-2 play-btn" id="playSummaryAudioBtn">🔊 Play</button>
-            </h3>
+            <h3><span class="icon">&#128221;</span> Summary</h3>
             <p id="summaryText" class="p-3 summary-box"></p>
-            <audio id="summaryAudio" style="display:none;"></audio>
         </section>
     </div>
 
     <script>
+        // Logout function
+        function logout() {
+            localStorage.removeItem('access_token');
+            window.location.href = '{{ url_for("logout") }}';
+        }
+
+        // Attach logout event
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+
         const loadingSpinner = document.getElementById('loadingSpinner');
         const extractTextBtn = document.getElementById('extractTextBtn');
         const summarizeTextBtn = document.getElementById('summarizeTextBtn');
@@ -69,94 +70,98 @@
         const extractedTextPre = document.getElementById('extractedText');
         const summarySection = document.getElementById('summarySection');
         const summaryTextP = document.getElementById('summaryText');
-        const extractedAudio = document.getElementById('extractedAudio');
-        const summaryAudio = document.getElementById('summaryAudio');
-        const playExtractedAudioBtn = document.getElementById('playExtractedAudioBtn');
-        const playSummaryAudioBtn = document.getElementById('playSummaryAudioBtn');
 
-        playExtractedAudioBtn.addEventListener('click', () => {
-            if (extractedAudio.src) {
-                extractedAudio.play();
-            } else {
-                alert('No audio available to play.');
-            }
-        });
-
-        playSummaryAudioBtn.addEventListener('click', () => {
-            if (summaryAudio.src) {
-                summaryAudio.play();
-            } else {
-                alert('No audio available to play.');
-            }
-        });
-
+        // Extract Text (OCR) - Synchronous
         extractTextBtn.addEventListener('click', async () => {
             loadingSpinner.style.display = 'block';
             extractedTextSection.style.display = 'none';
             summarySection.style.display = 'none';
+            extractTextBtn.disabled = true;
+            extractTextBtn.innerHTML = '<span class="icon">&#128270;</span> Processing...';
+
             try {
-                const response = await fetch('{{ url_for("ocr") }}', { method: 'POST', credentials: 'same-origin' });
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    const text = await response.text();
-                    alert('Unexpected response: ' + text);
-                    loadingSpinner.style.display = 'none';
+                const response = await fetch('{{ url_for("ocr") }}', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    resetButtons();
                     return;
                 }
-                if (data.text) {
-                    extractedTextPre.textContent = data.text;
-                    if (data.audio_url) {
-                        extractedAudio.src = data.audio_url;
-                    } else {
-                        extractedAudio.src = '';
-                    }
-                    extractedTextSection.style.display = 'block';
-                } else if (data.error) {
-                    alert('Error: ' + data.error);
+                
+                // Show extracted text
+                extractedTextPre.textContent = data.text || '';
+                extractedTextSection.style.display = 'block';
+                
+                if (data.cached) {
+                    extractTextBtn.innerHTML = '<span class="icon">&#128270;</span> Text from cache';
                 }
+                
             } catch (error) {
                 alert('Error: ' + error.message);
-            } finally {
-                loadingSpinner.style.display = 'none';
             }
+            
+            resetButtons();
         });
 
+        // Summarize Text - Synchronous
         summarizeTextBtn.addEventListener('click', async () => {
             loadingSpinner.style.display = 'block';
             extractedTextSection.style.display = 'none';
             summarySection.style.display = 'none';
+            summarizeTextBtn.disabled = true;
+            summarizeTextBtn.innerHTML = '<span class="icon">&#9986;</span> Processing...';
+
             try {
-                const response = await fetch('{{ url_for("summarize") }}', { method: 'POST', credentials: 'same-origin' });
-                let data;
-                try {
-                    data = await response.json();
-                } catch (e) {
-                    const text = await response.text();
-                    alert('Unexpected response: ' + text);
-                    loadingSpinner.style.display = 'none';
+                const response = await fetch('{{ url_for("summarize") }}', {
+                    method: 'POST',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error: ' + data.error);
+                    resetButtons();
                     return;
                 }
-                if (data.summary) {
-                    summaryTextP.textContent = data.summary;
-                    if (data.audio_url) {
-                        summaryAudio.src = data.audio_url;
-                    } else {
-                        summaryAudio.src = '';
-                    }
-                    summarySection.style.display = 'block';
-                } else if (data.error) {
-                    alert('Error: ' + data.error);
+                
+                // Show summary
+                summaryTextP.textContent = data.summary || '';
+                summarySection.style.display = 'block';
+                
+                if (data.cached) {
+                    summarizeTextBtn.innerHTML = '<span class="icon">&#9986;</span> Summary from cache';
                 }
+                
             } catch (error) {
                 alert('Error: ' + error.message);
-            } finally {
-                loadingSpinner.style.display = 'none';
             }
+            
+            resetButtons();
         });
 
-        // New code to update dropzone text with selected file name
+        function resetButtons() {
+            loadingSpinner.style.display = 'none';
+            extractTextBtn.disabled = false;
+            extractTextBtn.innerHTML = '<span class="icon">&#128270;</span> Extract Text (OCR)';
+            summarizeTextBtn.disabled = false;
+            summarizeTextBtn.innerHTML = '<span class="icon">&#9986;</span> Summarize Text';
+        }
+
+        // Update dropzone text with selected file name
         const fileInput = document.querySelector('input[name=image]');
         const dropzoneText = document.getElementById('fileNameDisplay');
 
